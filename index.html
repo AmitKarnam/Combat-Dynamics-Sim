@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trajectory Playground</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#050a12;--panel:#070d18;--border:#0d2035;--border2:#112840;
+  --accent:#00d4ff;--attack:#ff4455;--defense:#00ffcc;--warn:#ffcc00;
+  --dim:#1e3a55;--dim2:#2a4a6a;--text:#7aaccb;--textbright:#cce8f8;
+  --mono:'Share Tech Mono',monospace;--disp:'Orbitron',monospace;
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;overflow:hidden;user-select:none}
+#app{display:flex;height:100vh;width:100vw}
+
+/* SIDEBAR */
+#sidebar{width:258px;min-width:258px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;flex-shrink:0}
+#sidebar::-webkit-scrollbar{width:3px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border2)}
+.sb-section{border-bottom:1px solid var(--border);padding:12px 14px}
+.sb-title{font-family:var(--disp);font-size:8px;letter-spacing:2.5px;color:var(--dim2);text-transform:uppercase;margin-bottom:10px}
+.sb-sub{font-family:var(--disp);font-size:7px;letter-spacing:2px;color:var(--dim2);text-transform:uppercase;margin:8px 0 4px}
+.sel-wrap{position:relative;margin-bottom:6px}
+.sel-wrap select{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--accent);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;cursor:pointer;appearance:none}
+.sel-wrap select:hover{border-color:var(--accent)}
+.sel-wrap::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);color:var(--dim2);pointer-events:none;font-size:10px}
+.badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+.badge{font-size:9px;padding:2px 6px;border:1px solid var(--border2);color:var(--dim2);border-radius:2px;white-space:nowrap}
+.badge.atk{border-color:#ff4455aa;color:#ff8888}
+.badge.def{border-color:#00ffccaa;color:#00ddaa}
+.sl-row{display:flex;align-items:center;gap:8px;margin:5px 0}
+.sl-row .lbl{color:var(--text);font-size:10px;width:62px;flex-shrink:0}
+.sl-row input[type=range]{flex:1;-webkit-appearance:none;height:2px;background:var(--dim);outline:none;cursor:pointer}
+.sl-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--accent);cursor:pointer}
+.sl-row .val{width:48px;text-align:right;color:var(--textbright);font-size:10px;flex-shrink:0}
+.tog{display:flex;align-items:center;gap:8px;margin:6px 0;cursor:pointer}
+.tog input{accent-color:var(--accent);cursor:pointer}
+.tog span{font-size:10px;color:var(--text)}
+.btn-row{display:flex;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border)}
+button{font-family:var(--disp);font-size:8px;letter-spacing:2px;padding:8px 10px;border:1px solid;background:transparent;cursor:pointer;text-transform:uppercase;transition:all .15s;flex:1}
+#btnLaunch{border-color:var(--attack);color:var(--attack)}
+#btnLaunch:hover:not(:disabled){background:var(--attack);color:var(--bg)}
+#btnLaunch:disabled{opacity:.3;cursor:default}
+#btnReset{border-color:var(--dim2);color:var(--dim2)}
+#btnReset:hover{border-color:var(--text);color:var(--text)}
+
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#topbar{display:flex;align-items:stretch;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;height:40px}
+.tb-cell{display:flex;flex-direction:column;justify-content:center;padding:0 12px;border-right:1px solid var(--border);min-width:82px}
+.tb-cell:last-child{border-right:none}
+.tb-lbl{font-family:var(--disp);font-size:6px;letter-spacing:2px;color:var(--dim2)}
+.tb-val{font-size:11px;color:var(--textbright);margin-top:1px}
+.tb-val.atk{color:var(--attack)}
+.tb-val.def{color:var(--defense)}
+.tb-val.hit{color:var(--warn)}
+#sim-wrap{flex:1;position:relative;overflow:hidden}
+#sim-wrap canvas{display:block}
+#fbar{background:var(--panel);border-top:1px solid var(--border);padding:7px 14px;flex-shrink:0;display:flex;flex-direction:column;gap:3px}
+.fb-lbl{font-family:var(--disp);font-size:6px;letter-spacing:2px;color:var(--dim2)}
+.fb-f{font-size:10px;color:var(--accent);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* INFO POPUP */
+#ipanel{position:absolute;top:10px;right:10px;width:284px;background:rgba(4,9,17,.97);border:1px solid var(--border2);pointer-events:none;opacity:0;transition:opacity .25s;z-index:10}
+#ipanel.vis{opacity:1}
+.ip-hdr{padding:10px 14px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.ip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ip-name{font-family:var(--disp);font-size:9px;letter-spacing:1px;color:var(--textbright)}
+.ip-body{padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.ip-row{display:flex;flex-direction:column;gap:2px}
+.ip-key{font-family:var(--disp);font-size:6px;letter-spacing:2px;color:var(--dim2)}
+.ip-val{font-size:10px;color:var(--text);line-height:1.55}
+.ip-val.f{color:var(--accent);font-size:10px}
+.ip-sys{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.ip-s{font-size:9px;padding:2px 6px;border:1px solid var(--border2);color:var(--dim2)}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="sidebar">
+
+  <div class="sb-section">
+    <div class="sb-title">Attack Algorithm</div>
+    <div class="sel-wrap">
+      <select id="selAtk">
+        <option value="BALLISTIC">BALLISTIC — Newtonian (no drag)</option>
+        <option value="BALLISTIC_DRAG">BALLISTIC+DRAG — Quadratic Cd</option>
+        <option value="CRUISE">CRUISE — Constant Altitude</option>
+        <option value="BOOST_GLIDE">BOOST-GLIDE — HGV L/D model</option>
+      </select>
+    </div>
+    <div class="badges" id="atkBadges"></div>
+
+    <div id="grpBal">
+      <div class="sb-sub">Launch Angle θ</div>
+      <div class="sl-row"><span class="lbl">θ (deg)</span><input type="range" id="slAngle" min="10" max="85" value="45"><span class="val" id="vAngle">45°</span></div>
+      <div class="sb-sub">Launch Speed v₀</div>
+      <div class="sl-row"><span class="lbl">v₀ (m/s)</span><input type="range" id="slSpeed" min="200" max="2000" value="600" step="50"><span class="val" id="vSpeed">600 m/s</span></div>
+    </div>
+    <div id="grpDrag" style="display:none">
+      <div class="sb-sub">Drag Coefficient Cd</div>
+      <div class="sl-row"><span class="lbl">Cd</span><input type="range" id="slCd" min="0.01" max="0.5" value="0.1" step="0.01"><span class="val" id="vCd">0.10</span></div>
+    </div>
+    <div id="grpCruise" style="display:none">
+      <div class="sb-sub">Cruise Altitude h</div>
+      <div class="sl-row"><span class="lbl">h (m)</span><input type="range" id="slAlt" min="30" max="600" value="150" step="10"><span class="val" id="vAlt">150 m</span></div>
+      <div class="sb-sub">Cruise Speed</div>
+      <div class="sl-row"><span class="lbl">v (m/s)</span><input type="range" id="slCSpd" min="150" max="800" value="300" step="10"><span class="val" id="vCSpd">300 m/s</span></div>
+    </div>
+    <div id="grpBG" style="display:none">
+      <div class="sb-sub">Boost Angle θ</div>
+      <div class="sl-row"><span class="lbl">θ (deg)</span><input type="range" id="slBGA" min="20" max="70" value="40"><span class="val" id="vBGA">40°</span></div>
+      <div class="sb-sub">Boost Speed v₀</div>
+      <div class="sl-row"><span class="lbl">v (m/s)</span><input type="range" id="slBGS" min="500" max="2000" value="1000" step="50"><span class="val" id="vBGS">1000 m/s</span></div>
+      <div class="sb-sub">Glide Ratio L/D</div>
+      <div class="sl-row"><span class="lbl">L/D</span><input type="range" id="slLD" min="1" max="8" value="4" step="0.5"><span class="val" id="vLD">4.0</span></div>
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">Defense Algorithm</div>
+    <div class="sel-wrap">
+      <select id="selDef">
+        <option value="PN">PN — Proportional Navigation</option>
+        <option value="APN">APN — Augmented PN</option>
+        <option value="PURSUIT">PURSUIT — Pure Pursuit</option>
+        <option value="COLLISION">COLLISION — Lead Course</option>
+      </select>
+    </div>
+    <div class="badges" id="defBadges"></div>
+    <div class="sb-sub">Nav Constant N</div>
+    <div class="sl-row"><span class="lbl">N</span><input type="range" id="slN" min="1" max="7" value="3" step="0.5"><span class="val" id="vN">3.0</span></div>
+    <div class="sb-sub">Interceptor Speed</div>
+    <div class="sl-row"><span class="lbl">v (m/s)</span><input type="range" id="slDS" min="300" max="2000" value="900" step="50"><span class="val" id="vDS">900 m/s</span></div>
+    <div id="grpAPN" style="display:none">
+      <div class="sb-sub">APN Gain K</div>
+      <div class="sl-row"><span class="lbl">K</span><input type="range" id="slK" min="0.1" max="2" value="0.5" step="0.1"><span class="val" id="vK">0.5</span></div>
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-title">Display</div>
+    <label class="tog"><input type="checkbox" id="chkRadar" checked><span>Radar radius</span></label>
+    <div class="sl-row" id="grpRR"><span class="lbl">r (km)</span><input type="range" id="slRadar" min="50" max="400" value="150" step="10"><span class="val" id="vRadar">150 km</span></div>
+    <label class="tog"><input type="checkbox" id="chkLOS"><span>LOS vector</span></label>
+    <label class="tog"><input type="checkbox" id="chkVel"><span>Velocity vectors</span></label>
+    <label class="tog"><input type="checkbox" id="chkGrid" checked><span>Altitude grid</span></label>
+  </div>
+
+  <div class="btn-row">
+    <button id="btnLaunch">▶ Launch</button>
+    <button id="btnReset">↺ Reset</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <div class="tb-cell" style="min-width:110px"><div class="tb-lbl">STATUS</div><div class="tb-val" id="rcSt">READY</div></div>
+    <div class="tb-cell"><div class="tb-lbl">TIME</div><div class="tb-val" id="rcT">0.0 s</div></div>
+    <div class="tb-cell"><div class="tb-lbl">ATK SPEED</div><div class="tb-val atk" id="rcAS">—</div></div>
+    <div class="tb-cell"><div class="tb-lbl">ATK ALT</div><div class="tb-val atk" id="rcAA">—</div></div>
+    <div class="tb-cell"><div class="tb-lbl">INT SPEED</div><div class="tb-val def" id="rcIS">—</div></div>
+    <div class="tb-cell"><div class="tb-lbl">CLOSURE</div><div class="tb-val def" id="rcCL">—</div></div>
+    <div class="tb-cell"><div class="tb-lbl">SEPARATION</div><div class="tb-val" id="rcSP">—</div></div>
+    <div class="tb-cell"><div class="tb-lbl">RESULT</div><div class="tb-val" id="rcR">—</div></div>
+  </div>
+
+  <div id="sim-wrap">
+    <div id="ipanel">
+      <div class="ip-hdr"><div class="ip-dot" id="ipDot"></div><div class="ip-name" id="ipName"></div></div>
+      <div class="ip-body">
+        <div class="ip-row"><div class="ip-key">ALGORITHM CLASS</div><div class="ip-val" id="ipClass"></div></div>
+        <div class="ip-row"><div class="ip-key">GOVERNING FORMULA</div><div class="ip-val f" id="ipF"></div></div>
+        <div class="ip-row"><div class="ip-key">PHYSICS NOTES</div><div class="ip-val" id="ipN"></div></div>
+        <div class="ip-row"><div class="ip-key">REAL-WORLD SYSTEMS</div><div class="ip-sys" id="ipS"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="fbar">
+    <div class="fb-lbl" id="fbL">—</div>
+    <div class="fb-f" id="fbF">—</div>
+  </div>
+</div>
+</div>
+<script>
+// ── CONSTANTS ──────────────────────────────────────────
+const SCALE  = 0.10;          // 1 m/s → 0.10 px/s  (1 px = 10 m/s in velocity space)
+const G_PX   = 9.81 * SCALE; // gravity in px/s²
+const DT     = 1/60;
+const GH     = 36;            // ground strip height px
+
+// ── METADATA ──────────────────────────────────────────
+const META={
+  atk:{
+    BALLISTIC:{name:'Newtonian Ballistic',color:'#ff4455',cls:'Kinematic — Vacuum Projectile',
+      f:'vx=v₀cosθ  vy=v₀sinθ−g·t  |  x+=vx·dt  y+=vy·dt',
+      notes:'Three phases: short powered boost, ballistic mid-course arc, terminal re-entry. No atmospheric drag — ideal vacuum parabola. Closed-form solution exists: R=v₀²sin2θ/g.',
+      sys:['Scud-B','Iskander-M','Shahab-3','ATACMS','DF-11']},
+    BALLISTIC_DRAG:{name:'Ballistic + Quadratic Drag',color:'#ff7733',cls:'Kinematic — Quadratic Drag Model',
+      f:'F_drag=½ρCdAv²  a_drag=−(F/m)·v̂  |  v+=a·dt',
+      notes:'Adds quadratic aerodynamic drag proportional to v². At Cd=0.1 range drops ~30% vs vacuum. Models real SRBM behaviour — asymmetric trajectory (descent steeper than ascent).',
+      sys:['DF-11 (realistic)','Fateh-110','SS-21 Scarab']},
+    CRUISE:{name:'Constant-Altitude Cruise',color:'#ff8800',cls:'Sustained Powered Flight — PID Altitude Hold',
+      f:'y=h (const)  x+=v·dt  |  Δy=K_p·(h−y)',
+      notes:'Engine provides constant thrust. P-controller maintains cruise altitude. Flies below radar horizon at low h. Radar masking most effective below 100m. No terminal pop-up in this model.',
+      sys:['Tomahawk BGM-109','Storm Shadow','Kh-101','BrahMos']},
+    BOOST_GLIDE:{name:'Boost-Glide HGV',color:'#cc44ff',cls:'Hypersonic Glide Vehicle — L/D Sustained',
+      f:'Boost: ballistic  |  Glide: vy+=g·(1−1/LD)·dt',
+      notes:'Boost phase is standard ballistic. At apex vehicle pitches into glide: lift counteracts fraction 1/LD of gravity. Flat, high-speed trajectory at Mach 5+. Flies between ballistic and cruise intercept envelopes.',
+      sys:['DF-17 (China)','Avangard (Russia)','HTV-2 (DARPA exp.)']},
+  },
+  def:{
+    PN:{name:'Proportional Navigation',color:'#00ffcc',cls:'Guidance Law — Zero-Effort Miss',
+      f:'a_cmd = N · Vc · λ̇    where  λ̇ = dLOS/dt',
+      notes:'Nullifies LOS rotation rate. If λ̇→0, collision is geometrically guaranteed for non-manoeuvring targets. N=3–5 optimal. Converges to collision course, not current position. Vc = −d(range)/dt.',
+      sys:['Patriot PAC-3','AIM-120 AMRAAM','R-77','Python-5']},
+    APN:{name:'Augmented Proportional Navigation',color:'#00eebb',cls:'Guidance Law — PN + Target Accel Term',
+      f:'a = N·Vc·λ̇  +  K·aT⊥    (aT⊥ estimated from Δvy/dt)',
+      notes:'Extends PN by estimating and compensating for target lateral acceleration aT⊥. Dramatically improves intercept probability against MaRV or manoeuvring cruise missiles.',
+      sys:["David's Sling Stunner","THAAD","Arrow-3","SM-3 Block IIA"]},
+    PURSUIT:{name:'Pure Pursuit',color:'#44ddaa',cls:'Guidance Law — Direct Bearing',
+      f:'heading = atan2(T_y − M_y,  T_x − M_x)',
+      notes:'Nose always points at targets CURRENT position, not predicted intercept. Causes tail-chase: commanded turning rate diverges as target passes. High g-load near end-game. Historically used in early IR missiles.',
+      sys:['SA-2 (early mode)','9M14 Malyutka','AIM-9B Sidewinder']},
+    COLLISION:{name:'Lead Collision Course',color:'#00ccff',cls:'Guidance Law — Predicted Impact Point',
+      f:'T_pred = T_pos + v_T · t_go  |  steer to T_pred',
+      notes:'Computes where target will be at time-of-flight t_go and steers there. Straight-line flight → lower g-load. Requires good target velocity estimate. Fails against manoeuvring targets.',
+      sys:['Nike Ajax (command)','SA-75 Dvina','Early CLOS systems']},
+  }
+};
+
+// ── STATE ─────────────────────────────────────────────
+const st={
+  running:false,t:0,
+  atk:null,inter:null,
+  atkTrail:[],intTrail:[],
+  expl:[],
+  result:null,missDist:null,
+  atkSpd:0,atkAlt:0,intSpd:0,closure:0,sep:0,
+};
+
+// ── PHYSICS ───────────────────────────────────────────
+const Ph={
+  bal_init(sx,sy,a,v){
+    const rad=a*Math.PI/180,spx=v*SCALE;
+    return{x:sx,y:sy,vx:spx*Math.cos(rad),vy:-spx*Math.sin(rad),alive:true,phase:'boost',bT:0};
+  },
+  bal_step(o,dt){
+    if(o.phase==='boost'){o.bT+=dt;if(o.bT>1.5)o.phase='mid'}
+    o.vy+=G_PX*dt; o.x+=o.vx*dt; o.y+=o.vy*dt;
+  },
+
+  bald_init(sx,sy,a,v,Cd){
+    const rad=a*Math.PI/180,spx=v*SCALE;
+    return{x:sx,y:sy,vx:spx*Math.cos(rad),vy:-spx*Math.sin(rad),Cd,alive:true,phase:'boost',bT:0};
+  },
+  bald_step(o,dt){
+    if(o.phase==='boost'){o.bT+=dt;if(o.bT>1.5)o.phase='mid'}
+    const spd=Math.sqrt(o.vx*o.vx+o.vy*o.vy)||.001;
+    const drag=o.Cd*spd*spd*0.0006;
+    o.vx-=(o.vx/spd)*drag*dt;
+    o.vy-=(o.vy/spd)*drag*dt;
+    o.vy+=G_PX*dt; o.x+=o.vx*dt; o.y+=o.vy*dt;
+  },
+
+  cruise_init(sx,sy,v,altPx){
+    const gY=_gY(); const spx=v*SCALE;
+    return{x:sx,y:gY-altPx,vx:spx,vy:0,cruY:gY-altPx,alive:true,phase:'cruise'};
+  },
+  cruise_step(o,dt){
+    o.x+=o.vx*dt; o.y+=(o.cruY-o.y)*0.12;
+  },
+
+  bg_init(sx,sy,a,v,LD){
+    const rad=a*Math.PI/180,spx=v*SCALE;
+    return{x:sx,y:sy,vx:spx*Math.cos(rad),vy:-spx*Math.sin(rad),LD,alive:true,phase:'boost'};
+  },
+  bg_step(o,dt){
+    if(o.phase==='boost'){
+      o.vy+=G_PX*dt;
+      if(o.vy>=0) o.phase='glide';
+    } else {
+      const lf=Math.min(1/o.LD,.92);
+      o.vy+=G_PX*(1-lf)*dt;
+      o.vx*=(1-.008*dt); o.vy*=(1-.004*dt);
+    }
+    o.x+=o.vx*dt; o.y+=o.vy*dt;
+  },
+
+  pn_init(sx,sy,v,N){
+    const spx=v*SCALE;
+    return{x:sx,y:sy,vx:-spx*.25,vy:-spx*.97,speed:spx,N,pLOS:null,pDist:null,alive:true};
+  },
+  pn_step(o,tgt,dt){
+    const dx=tgt.x-o.x,dy=tgt.y-o.y;
+    const dist=Math.sqrt(dx*dx+dy*dy); if(dist<8){o.alive=false;return}
+    const LOS=Math.atan2(dy,dx);
+    const pL=o.pLOS!==null?o.pLOS:LOS;
+    let Ld=(LOS-pL)/dt;
+    while(Ld>Math.PI)Ld-=2*Math.PI; while(Ld<-Math.PI)Ld+=2*Math.PI;
+    o.pLOS=LOS;
+    const pD=o.pDist!==null?o.pDist:dist;
+    const Vc=-(dist-pD)/dt; o.pDist=dist;
+    const cmd=o.N*Vc*Ld;
+    const h=Math.atan2(o.vy,o.vx);
+    o.vx+=cmd*-Math.sin(h)*dt; o.vy+=cmd*Math.cos(h)*dt;
+    const s=Math.sqrt(o.vx*o.vx+o.vy*o.vy)||1;
+    o.vx=o.vx/s*o.speed; o.vy=o.vy/s*o.speed;
+    o.x+=o.vx*dt; o.y+=o.vy*dt;
+  },
+
+  apn_init(sx,sy,v,N,K){
+    const spx=v*SCALE;
+    return{x:sx,y:sy,vx:-spx*.25,vy:-spx*.97,speed:spx,N,K,pLOS:null,pDist:null,pTvy:null,alive:true};
+  },
+  apn_step(o,tgt,dt){
+    const dx=tgt.x-o.x,dy=tgt.y-o.y;
+    const dist=Math.sqrt(dx*dx+dy*dy); if(dist<8){o.alive=false;return}
+    const LOS=Math.atan2(dy,dx);
+    const pL=o.pLOS!==null?o.pLOS:LOS;
+    let Ld=(LOS-pL)/dt;
+    while(Ld>Math.PI)Ld-=2*Math.PI; while(Ld<-Math.PI)Ld+=2*Math.PI;
+    o.pLOS=LOS;
+    const pD=o.pDist!==null?o.pDist:dist;
+    const Vc=-(dist-pD)/dt; o.pDist=dist;
+    const pTV=o.pTvy!==null?o.pTvy:tgt.vy;
+    const aT=(tgt.vy-pTV)/dt; o.pTvy=tgt.vy;
+    const cmd=o.N*Vc*Ld + o.K*aT;
+    const h=Math.atan2(o.vy,o.vx);
+    o.vx+=cmd*-Math.sin(h)*dt; o.vy+=cmd*Math.cos(h)*dt;
+    const s=Math.sqrt(o.vx*o.vx+o.vy*o.vy)||1;
+    o.vx=o.vx/s*o.speed; o.vy=o.vy/s*o.speed;
+    o.x+=o.vx*dt; o.y+=o.vy*dt;
+  },
+
+  pur_init(sx,sy,v){
+    const spx=v*SCALE;
+    return{x:sx,y:sy,vx:-spx*.25,vy:-spx*.97,speed:spx,alive:true};
+  },
+  pur_step(o,tgt,dt){
+    const dx=tgt.x-o.x,dy=tgt.y-o.y;
+    const dist=Math.sqrt(dx*dx+dy*dy); if(dist<8){o.alive=false;return}
+    o.vx=(dx/dist)*o.speed; o.vy=(dy/dist)*o.speed;
+    o.x+=o.vx*dt; o.y+=o.vy*dt;
+  },
+
+  col_init(sx,sy,v){
+    const spx=v*SCALE;
+    return{x:sx,y:sy,vx:-spx*.25,vy:-spx*.97,speed:spx,alive:true};
+  },
+  col_step(o,tgt,dt){
+    const dx=tgt.x-o.x,dy=tgt.y-o.y;
+    const dist=Math.sqrt(dx*dx+dy*dy); if(dist<8){o.alive=false;return}
+    const tgo=dist/o.speed;
+    const px=tgt.x+(tgt.vx||0)*tgo, py=tgt.y+(tgt.vy||0)*tgo;
+    const ddx=px-o.x,ddy=py-o.y;
+    const d=Math.sqrt(ddx*ddx+ddy*ddy)||1;
+    o.vx=(ddx/d)*o.speed; o.vy=(ddy/d)*o.speed;
+    o.x+=o.vx*dt; o.y+=o.vy*dt;
+  },
+};
+
+function _gY(){
+  const w=document.getElementById('sim-wrap');
+  return (w?w.clientHeight:600)-GH;
+}
+function gv(id){return parseFloat(document.getElementById(id).value)}
+function sv(id,v){const el=document.getElementById(id);if(el)el.textContent=v}
+
+// ── P5 ────────────────────────────────────────────────
+new p5(function(p){
+  let W,H,gY,launchX,defX;
+  const KM2PX=()=>SCALE*1000;
+
+  function layout(){
+    const wr=document.getElementById('sim-wrap');
+    W=wr.clientWidth; H=wr.clientHeight; gY=H-GH;
+    launchX=W*.12; defX=W*.72;
+  }
+
+  p.setup=function(){
+    layout();
+    p.createCanvas(W,H).parent('sim-wrap');
+    p.frameRate(60);
+    updateFbar();
+  };
+  p.windowResized=function(){layout();p.resizeCanvas(W,H)};
+
+  p.draw=function(){
+    p.background(5,10,18);
+    if(document.getElementById('chkGrid').checked) drawGrid();
+    drawRadar();
+    drawTerrain();
+    drawSites();
+    if(st.running) tick();
+    drawTrails();
+    drawLOS();
+    drawVectors();
+    drawMissiles();
+    drawExplosions();
+    drawOnCanvasLabels();
+    if(!st.running&&st.result) drawResult();
+  };
+
+  function tick(){
+    const aK=document.getElementById('selAtk').value;
+    const dK=document.getElementById('selDef').value;
+    const N=gv('slN'),K=gv('slK');
+    const a=st.atk, i=st.inter;
+
+    if(a&&a.alive){
+      switch(aK){
+        case'BALLISTIC':Ph.bal_step(a,DT);break;
+        case'BALLISTIC_DRAG':Ph.bald_step(a,DT);break;
+        case'CRUISE':Ph.cruise_step(a,DT);break;
+        case'BOOST_GLIDE':Ph.bg_step(a,DT);break;
+      }
+      st.atkTrail.push({x:a.x,y:a.y});
+      if(st.atkTrail.length>1400)st.atkTrail.shift();
+      st.atkSpd=Math.sqrt(a.vx*a.vx+a.vy*a.vy)/SCALE;
+      st.atkAlt=Math.max(0,(gY-a.y)/SCALE);
+      if(a.y>=gY||a.x>W+30||a.x<-120){
+        explode(Math.min(Math.max(a.x,0),W),gY,'atk');
+        a.alive=false; if(st.inter)st.inter.alive=false;
+        endSim('MISS',null); return;
+      }
+    }
+
+    // launch trigger
+    if(!st.inter&&a&&a.alive){
+      const fire=a.x>W*.20;
+      if(fire){
+        const v=gv('slDS');
+        switch(dK){
+          case'PN':st.inter=Ph.pn_init(defX,gY,v,N);break;
+          case'APN':st.inter=Ph.apn_init(defX,gY,v,N,K);break;
+          case'PURSUIT':st.inter=Ph.pur_init(defX,gY,v);break;
+          case'COLLISION':st.inter=Ph.col_init(defX,gY,v);break;
+        }
+      }
+    }
+
+    const ii=st.inter;
+    if(ii&&ii.alive&&a&&a.alive){
+      ii.N=N; ii.K=K;
+      switch(dK){
+        case'PN':Ph.pn_step(ii,a,DT);break;
+        case'APN':Ph.apn_step(ii,a,DT);break;
+        case'PURSUIT':Ph.pur_step(ii,a,DT);break;
+        case'COLLISION':Ph.col_step(ii,a,DT);break;
+      }
+      st.intTrail.push({x:ii.x,y:ii.y});
+      if(st.intTrail.length>1400)st.intTrail.shift();
+      st.intSpd=Math.sqrt(ii.vx*ii.vx+ii.vy*ii.vy)/SCALE;
+      const dx=ii.x-a.x,dy=ii.y-a.y;
+      const sep=Math.sqrt(dx*dx+dy*dy);
+      const pS=ii._pS||sep;
+      st.closure=-(sep-pS)/(DT*SCALE);
+      ii._pS=sep; st.sep=sep;
+      if(sep<16){
+        explode((ii.x+a.x)/2,(ii.y+a.y)/2,'hit');
+        a.alive=false; ii.alive=false; endSim('HIT',sep); return;
+      }
+      if(ii.x<-40||ii.x>W+40||ii.y>gY+20||ii.y<-100){
+        ii.alive=false; endSim('MISS',sep); return;
+      }
+    }
+    st.t+=DT;
+    updateTopbar();
+    stepExpl();
+  }
+
+  // explosions
+  function explode(x,y,type){
+    const col=type==='hit'?[255,220,0]:type==='atk'?[255,60,60]:[0,255,200];
+    const n=type==='hit'?44:26;
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2,s=Math.random()*4+.5;
+      st.expl.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,decay:.015+Math.random()*.02,sz:Math.random()*5+1,col});
+    }
+  }
+  function stepExpl(){
+    st.expl=st.expl.filter(e=>e.life>0);
+    for(const e of st.expl){e.x+=e.vx;e.y+=e.vy;e.vy+=.08;e.life-=e.decay}
+  }
+  function drawExplosions(){
+    p.noStroke();
+    for(const e of st.expl){
+      p.fill(e.col[0],e.col[1],e.col[2],e.life*255);
+      p.circle(e.x,e.y,e.sz*e.life*2.2);
+    }
+  }
+
+  // grid
+  function drawGrid(){
+    p.stroke(9,24,42,150); p.strokeWeight(1);
+    // altitude lines every 100m world = 100*SCALE px
+    const step=Math.max(4,Math.round(100*SCALE));
+    for(let y=gY;y>0;y-=step) p.line(0,y,W,y);
+    for(let x=0;x<W;x+=80) p.line(x,0,x,gY);
+    // labels
+    p.noStroke(); p.fill(14,38,62); p.textSize(8); p.textAlign(p.LEFT,p.CENTER);
+    for(let y=gY-step;y>30;y-=step*2){
+      const alt=Math.round((gY-y)/SCALE);
+      p.text(alt+'m',4,y);
+    }
+  }
+
+  // radar
+  function drawRadar(){
+    if(!document.getElementById('chkRadar').checked)return;
+    const r_km=gv('slRadar'), r=r_km*KM2PX();
+    // static ring
+    p.noFill(); p.stroke(0,255,200,40); p.strokeWeight(1);
+    p.circle(defX,gY,r*2);
+    // half-circle above ground
+    p.stroke(0,255,200,35); p.arc(defX,gY,r*2,r*2,Math.PI,0);
+    // animated sweep
+    const ang=((st.t*.6)%(Math.PI*2));
+    p.push(); p.translate(defX,gY);
+    for(let i=0;i<10;i++){
+      const a=ang-i*.05;
+      p.stroke(0,255,200,Math.max(0,55-i*5)); p.strokeWeight(1);
+      p.line(0,0,Math.cos(a)*r,Math.sin(a)*r);
+    }
+    p.pop();
+    p.noStroke(); p.fill(0,180,140,100); p.textSize(8);
+    p.textAlign(p.CENTER,p.TOP);
+    p.text('RADAR  r='+r_km+'km',defX,gY-r-14);
+  }
+
+  // terrain
+  function drawTerrain(){
+    p.noStroke(); p.fill(8,20,35); p.rect(0,gY,W,GH);
+    p.stroke(0,80,120,200); p.strokeWeight(1.5); p.line(0,gY,W,gY);
+    p.noStroke(); p.fill(14,46,72,180); p.textSize(8); p.textAlign(p.LEFT,p.TOP);
+    p.text('GROUND  0 m',6,gY+5);
+  }
+
+  function drawSites(){
+    siteIcon(launchX,gY,'#ff4455','LAUNCH');
+    siteIcon(defX,gY,'#00ffcc','DEFENSE');
+  }
+  function siteIcon(x,y,col,lbl){
+    p.drawingContext.shadowBlur=10; p.drawingContext.shadowColor=col;
+    p.stroke(p.color(col)); p.strokeWeight(1.5); p.noFill();
+    p.beginShape(); p.vertex(x,y); p.vertex(x-9,y-20); p.vertex(x+9,y-20); p.endShape(p.CLOSE);
+    p.fill(col); p.noStroke(); p.circle(x,y-20,5);
+    p.drawingContext.shadowBlur=0;
+    p.fill(col); p.noStroke(); p.textSize(8); p.textFont('Share Tech Mono');
+    p.textAlign(p.CENTER,p.BOTTOM); p.text(lbl,x,y-25);
+  }
+
+  function drawTrails(){
+    const am=META.atk[document.getElementById('selAtk').value];
+    const dm=META.def[document.getElementById('selDef').value];
+    glowTrail(st.atkTrail,am.color);
+    glowTrail(st.intTrail,dm.color);
+  }
+  function glowTrail(trail,col){
+    if(trail.length<2)return;
+    p.drawingContext.shadowBlur=6; p.drawingContext.shadowColor=col;
+    p.noFill();
+    const c=p.color(col);
+    for(let i=1;i<trail.length;i++){
+      c.setAlpha((i/trail.length)*180);
+      p.stroke(c); p.strokeWeight(i<trail.length-8?1:1.7);
+      p.line(trail[i-1].x,trail[i-1].y,trail[i].x,trail[i].y);
+    }
+    p.drawingContext.shadowBlur=0;
+  }
+
+  function drawLOS(){
+    if(!document.getElementById('chkLOS').checked)return;
+    if(!(st.atk&&st.atk.alive&&st.inter&&st.inter.alive))return;
+    p.stroke(255,255,100,70); p.strokeWeight(1); p.noFill();
+    p.drawingContext.setLineDash([4,5]);
+    p.line(st.inter.x,st.inter.y,st.atk.x,st.atk.y);
+    p.drawingContext.setLineDash([]);
+  }
+
+  function drawVectors(){
+    if(!document.getElementById('chkVel').checked)return;
+    const sc=0.5;
+    function arrow(x,y,vx,vy,col){
+      const ex=x+vx*sc,ey=y+vy*sc;
+      p.stroke(col); p.strokeWeight(1.5); p.noFill();
+      p.line(x,y,ex,ey);
+      const a=Math.atan2(vy,vx);
+      p.push(); p.translate(ex,ey); p.rotate(a);
+      p.fill(col); p.noStroke(); p.triangle(0,0,-6,-3,-6,3);
+      p.pop();
+    }
+    if(st.atk&&st.atk.alive)
+      arrow(st.atk.x,st.atk.y,st.atk.vx,st.atk.vy,p.color(255,100,80,200));
+    if(st.inter&&st.inter.alive)
+      arrow(st.inter.x,st.inter.y,st.inter.vx,st.inter.vy,p.color(0,255,180,200));
+  }
+
+  function drawMissiles(){
+    const am=META.atk[document.getElementById('selAtk').value];
+    const dm=META.def[document.getElementById('selDef').value];
+    if(st.atk&&st.atk.alive)
+      missileShape(st.atk.x,st.atk.y,Math.atan2(st.atk.vy,st.atk.vx),am.color,11);
+    if(st.inter&&st.inter.alive)
+      missileShape(st.inter.x,st.inter.y,Math.atan2(st.inter.vy,st.inter.vx),dm.color,8);
+  }
+  function missileShape(x,y,angle,col,sz){
+    p.push(); p.translate(x,y); p.rotate(angle+Math.PI/2);
+    p.drawingContext.shadowBlur=14; p.drawingContext.shadowColor=col;
+    p.fill(col); p.noStroke(); p.ellipse(0,0,sz*.55,sz);
+    p.fill(255,255,255,150); p.ellipse(0,-sz*.2,sz*.28,sz*.38);
+    p.drawingContext.shadowBlur=0; p.pop();
+  }
+
+  function drawOnCanvasLabels(){
+    p.textFont('Share Tech Mono'); p.noStroke();
+    if(st.atk&&st.atk.alive){
+      const ph=st.atk.phase||'';
+      p.textSize(9); p.fill(255,80,80,200);
+      p.textAlign(p.LEFT,p.BOTTOM);
+      p.text(st.atkSpd.toFixed(0)+' m/s  '+st.atkAlt.toFixed(0)+'m  '+ph.toUpperCase(),st.atk.x+10,st.atk.y-5);
+    }
+    if(st.inter&&st.inter.alive){
+      p.textSize(9); p.fill(0,255,180,180);
+      p.textAlign(p.LEFT,p.TOP);
+      const cl=st.closure>0?'CLOSING':'OPENING';
+      p.text('◉ '+cl+'  Δ='+(st.sep/SCALE/1000).toFixed(2)+'km',st.inter.x+10,st.inter.y+4);
+    }
+  }
+
+  function drawResult(){
+    const hit=st.result==='HIT';
+    const col=hit?'#ffdd00':'#ff4455';
+    const msg=hit?'◉  INTERCEPT  SUCCESSFUL':'✕  INTERCEPT  FAILED';
+    p.textFont('Orbitron,monospace'); p.textSize(20);
+    p.textAlign(p.CENTER,p.CENTER);
+    p.drawingContext.shadowBlur=28; p.drawingContext.shadowColor=col;
+    p.fill(col); p.text(msg,W/2,H/2-22);
+    p.drawingContext.shadowBlur=0;
+    if(st.missDist!==null){
+      p.textFont('Share Tech Mono'); p.textSize(11); p.fill(col+'bb');
+      p.text('closest approach: '+(st.missDist/SCALE).toFixed(0)+' m',W/2,H/2+8);
+    }
+  }
+},  'sim-wrap');
+
+// ── TOPBAR ────────────────────────────────────────────
+function updateTopbar(){
+  sv('rcT',st.t.toFixed(1)+' s');
+  sv('rcAS',st.atkSpd>0?st.atkSpd.toFixed(0)+' m/s':'—');
+  sv('rcAA',st.atkAlt>0?st.atkAlt.toFixed(0)+' m':'—');
+  sv('rcIS',st.intSpd>0?st.intSpd.toFixed(0)+' m/s':'—');
+  sv('rcCL',st.closure!==0?st.closure.toFixed(0)+' m/s':'—');
+  if(st.sep>0) sv('rcSP',(st.sep/SCALE/1000).toFixed(2)+' km');
+}
+
+function endSim(result,dist){
+  st.running=false; st.result=result; st.missDist=dist;
+  const el=document.getElementById('rcR');
+  el.textContent=result;
+  el.className='tb-val '+(result==='HIT'?'hit':'atk');
+  sv('rcSt',result==='HIT'?'INTERCEPTED':'IMPACT');
+  document.getElementById('btnLaunch').disabled=false;
+}
+
+// ── INFO PANEL ────────────────────────────────────────
+function showInfo(meta){
+  document.getElementById('ipDot').style.background=meta.color;
+  document.getElementById('ipName').textContent=meta.name;
+  document.getElementById('ipClass').textContent=meta.cls;
+  document.getElementById('ipF').textContent=meta.f;
+  document.getElementById('ipN').textContent=meta.notes;
+  document.getElementById('ipS').innerHTML=meta.sys.map(s=>`<span class="ip-s">${s}</span>`).join('');
+  const p=document.getElementById('ipanel');
+  p.classList.add('vis');
+  clearTimeout(p._t);
+  p._t=setTimeout(()=>p.classList.remove('vis'),7000);
+}
+
+function updateFbar(){
+  const am=META.atk[document.getElementById('selAtk').value];
+  const dm=META.def[document.getElementById('selDef').value];
+  sv('fbL','ATTACK: '+am.name.toUpperCase()+'   ·   DEFENSE: '+dm.name.toUpperCase());
+  document.getElementById('fbF').textContent='ATK: '+am.f+'    |    DEF: '+dm.f;
+  // badges
+  setBadges('atkBadges',am.sys,'atk');
+  setBadges('defBadges',dm.sys,'def');
+}
+function setBadges(id,sys,cls){
+  document.getElementById(id).innerHTML=sys.map(s=>`<span class="badge ${cls}">${s}</span>`).join('');
+}
+
+// ── CONTROLS ─────────────────────────────────────────
+document.getElementById('selAtk').addEventListener('change',function(){
+  const v=this.value;
+  document.getElementById('grpBal').style.display=
+    (v==='BALLISTIC'||v==='BALLISTIC_DRAG')?'':'none';
+  document.getElementById('grpDrag').style.display=v==='BALLISTIC_DRAG'?'':'none';
+  document.getElementById('grpCruise').style.display=v==='CRUISE'?'':'none';
+  document.getElementById('grpBG').style.display=v==='BOOST_GLIDE'?'':'none';
+  updateFbar(); showInfo(META.atk[v]);
+});
+document.getElementById('selDef').addEventListener('change',function(){
+  document.getElementById('grpAPN').style.display=this.value==='APN'?'':'none';
+  updateFbar(); showInfo(META.def[this.value]);
+});
+
+// info icons on hover over labels — click the title to show info
+document.querySelector('.sb-section:nth-child(1) .sb-title')
+  .style.cursor='pointer';
+document.querySelector('.sb-section:nth-child(1) .sb-title')
+  .addEventListener('click',()=>showInfo(META.atk[document.getElementById('selAtk').value]));
+document.querySelector('.sb-section:nth-child(2) .sb-title')
+  .style.cursor='pointer';
+document.querySelector('.sb-section:nth-child(2) .sb-title')
+  .addEventListener('click',()=>showInfo(META.def[document.getElementById('selDef').value]));
+
+// sliders
+[['slAngle','vAngle',v=>v+'°'],
+ ['slSpeed','vSpeed',v=>v+' m/s'],
+ ['slCd','vCd',v=>parseFloat(v).toFixed(2)],
+ ['slAlt','vAlt',v=>v+' m'],
+ ['slCSpd','vCSpd',v=>v+' m/s'],
+ ['slBGA','vBGA',v=>v+'°'],
+ ['slBGS','vBGS',v=>v+' m/s'],
+ ['slLD','vLD',v=>parseFloat(v).toFixed(1)],
+ ['slN','vN',v=>parseFloat(v).toFixed(1)],
+ ['slDS','vDS',v=>v+' m/s'],
+ ['slK','vK',v=>parseFloat(v).toFixed(1)],
+ ['slRadar','vRadar',v=>v+' km'],
+].forEach(([id,vid,fmt])=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.addEventListener('input',()=>sv(vid,fmt(el.value)));
+});
+
+// LAUNCH
+document.getElementById('btnLaunch').addEventListener('click',function(){
+  const wr=document.getElementById('sim-wrap');
+  const W=wr.clientWidth, H=wr.clientHeight, gY=H-GH;
+  const lX=W*.12;
+  const aK=document.getElementById('selAtk').value;
+  Object.assign(st,{
+    running:true,t:0,atk:null,inter:null,
+    atkTrail:[],intTrail:[],expl:[],result:null,missDist:null,
+    atkSpd:0,atkAlt:0,intSpd:0,closure:0,sep:0,
+  });
+  sv('rcR','—'); document.getElementById('rcR').className='tb-val';
+  sv('rcSt','AIRBORNE');
+  switch(aK){
+    case'BALLISTIC':st.atk=Ph.bal_init(lX,gY,gv('slAngle'),gv('slSpeed'));break;
+    case'BALLISTIC_DRAG':st.atk=Ph.bald_init(lX,gY,gv('slAngle'),gv('slSpeed'),gv('slCd'));break;
+    case'CRUISE':st.atk=Ph.cruise_init(lX,gY,gv('slCSpd'),gv('slAlt'));break;
+    case'BOOST_GLIDE':st.atk=Ph.bg_init(lX,gY,gv('slBGA'),gv('slBGS'),gv('slLD'));break;
+  }
+  this.disabled=true;
+});
+
+// RESET
+document.getElementById('btnReset').addEventListener('click',function(){
+  Object.assign(st,{
+    running:false,t:0,atk:null,inter:null,
+    atkTrail:[],intTrail:[],expl:[],result:null,missDist:null,
+    atkSpd:0,atkAlt:0,intSpd:0,closure:0,sep:0,
+  });
+  ['rcSt','rcT','rcAS','rcAA','rcIS','rcCL','rcSP','rcR'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent=id==='rcSt'?'READY':id==='rcT'?'0.0 s':'—';el.className='tb-val'}
+  });
+  document.getElementById('btnLaunch').disabled=false;
+});
+
+updateFbar();
+</script>
+</body>
+</html>
