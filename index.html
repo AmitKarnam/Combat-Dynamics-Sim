@@ -77,6 +77,30 @@ button{font-family:var(--disp);font-size:8px;letter-spacing:2px;padding:8px 10px
 .ip-val.f{color:var(--accent);font-size:10px}
 .ip-sys{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
 .ip-s{font-size:9px;padding:2px 6px;border:1px solid var(--border2);color:var(--dim2)}
+
+/* TUTORIAL SYSTEM */
+#tutorial-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.2);z-index:999;opacity:0;pointer-events:none;transition:opacity .3s}
+#tutorial-overlay.active{opacity:1;pointer-events:auto}
+.tutorial-highlight{position:fixed;border:2px solid var(--accent);box-shadow:inset 0 0 8px var(--accent),0 0 20px rgba(0,212,255,.5);border-radius:4px;pointer-events:none;transition:all .2s;z-index:1001}
+#tutorial-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:520px;background:var(--panel);border:2px solid var(--accent);border-radius:6px;padding:24px;z-index:1000;opacity:0;transform:translate(-50%,-50%) scale(.9);pointer-events:none;transition:all .3s;box-shadow:0 0 30px rgba(0,212,255,.3)}
+#tutorial-modal.active{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.tutorial-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.tutorial-title{font-family:var(--disp);font-size:14px;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase}
+.tutorial-step{font-family:var(--mono);font-size:9px;color:var(--text);letter-spacing:.5px;opacity:.8}
+#tutorial-close{background:transparent;border:none;color:var(--dim2);font-size:16px;padding:0 4px;cursor:pointer;width:auto;font-family:monospace;transition:all .2s;line-height:1}
+#tutorial-close:hover{color:var(--accent)}
+.tutorial-content{margin-bottom:20px;font-size:11px;line-height:1.6;color:var(--textbright)}
+.tutorial-content strong{color:var(--accent)}
+.tutorial-actions{display:flex;gap:10px;justify-content:flex-end}
+.tutorial-btn{font-family:var(--disp);font-size:9px;letter-spacing:1px;padding:8px 14px;border:1px solid;background:transparent;cursor:pointer;text-transform:uppercase;transition:all .15s;text-align:center}
+#tutorial-skip{border-color:var(--dim2);color:var(--dim2)}
+#tutorial-skip:hover{border-color:var(--text);color:var(--text)}
+#tutorial-next{border-color:var(--accent);color:var(--accent)}
+#tutorial-next:hover{background:var(--accent);color:var(--bg)}
+.tutorial-dots{display:flex;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);justify-content:center}
+.tutorial-dot{width:4px;height:4px;border-radius:50%;background:var(--dim2);cursor:pointer;transition:all .2s}
+.tutorial-dot.active{background:var(--accent);width:12px;border-radius:2px}
+.tutorial-dot:hover{background:var(--text)}
 </style>
 </head>
 <body>
@@ -187,7 +211,169 @@ button{font-family:var(--disp);font-size:8px;letter-spacing:2px;padding:8px 10px
   </div>
 </div>
 </div>
+
+<!-- TUTORIAL SYSTEM -->
+<div id="tutorial-overlay"></div>
+<div id="tutorial-modal">
+  <div class="tutorial-header">
+    <div><div class="tutorial-title" id="tutorialTitle">TUTORIAL</div><div class="tutorial-step" id="tutorialStep">Step 1 of 6</div></div>
+    <button id="tutorial-close">✕</button>
+  </div>
+  <div class="tutorial-content" id="tutorialContent"></div>
+  <div class="tutorial-actions">
+    <button class="tutorial-btn" id="tutorial-skip">SKIP TUTORIAL</button>
+    <button class="tutorial-btn" id="tutorial-next">NEXT →</button>
+  </div>
+  <div class="tutorial-dots" id="tutorialDots"></div>
+</div>
+
 <script>
+// ── TUTORIAL SYSTEM ───────────────────────────────────
+const TUTORIAL = {
+  steps: [
+    {
+      title: 'WELCOME TO TRAJECTORY PLAYGROUND',
+      content: 'This is a real-time <strong>ballistic trajectory simulator</strong> for analyzing attack and defense algorithms across multiple physics models. Click <strong>NEXT</strong> to learn the basics, or <strong>SKIP TUTORIAL</strong> to start immediately.',
+      highlight: null,
+    },
+    {
+      title: 'CHOOSE YOUR ATTACK ALGORITHM',
+      content: 'Select from 4 different attack models:<br><strong>BALLISTIC</strong> — Classic arc<br><strong>BALLISTIC+DRAG</strong> — With air resistance<br><strong>CRUISE</strong> — Low-altitude flight<br><strong>BOOST-GLIDE</strong> — Hypersonic vehicle',
+      highlight: '#selAtk',
+    },
+    {
+      title: 'CONFIGURE LAUNCH PARAMETERS',
+      content: 'Adjust the sliders below the attack selector to fine-tune your weapon: launch angle θ (10—85°), velocity, altitude, drag coefficient, or glide ratio depending on algorithm mode.',
+      highlight: '#grpBal',
+    },
+    {
+      title: 'SET UP DEFENSE SYSTEM',
+      content: 'Choose your interceptor guidance law:<br><strong>PN</strong> — Zero-effort miss<br><strong>APN</strong> — With accel compensation<br><strong>PURSUIT</strong> — Direct bearing<br><strong>COLLISION</strong> — Predicted intercept point',
+      highlight: '#selDef',
+    },
+    {
+      title: 'MONITOR REAL-TIME TELEMETRY',
+      content: 'The <strong>top bar</strong> displays live simulation data: attack speed, altitude, interceptor closure rate, and separation distance. <strong>Red = attack, Cyan = defense</strong>. Watch the numbers update as the missiles fly.',
+      highlight: '#topbar',
+    },
+    {
+      title: 'LAUNCH AND ANALYZE',
+      content: 'Click <strong>LAUNCH</strong> to fire! Watch the trajectories unfold in real-time. If a hit occurs, colored particles explode at the impact point. Click <strong>RESET</strong> to try again with different settings.',
+      highlight: '.btn-row',
+    },
+  ],
+  currentStep: 0,
+  hasSeenTutorial: localStorage.getItem('tutorialSeen') === 'true',
+
+  init() {
+    if (this.hasSeenTutorial) {
+      document.getElementById('tutorial-overlay').style.display='none';
+      return;
+    }
+    this.renderDots();
+    this.show();
+  },
+
+  show() {
+    const step = this.steps[this.currentStep];
+    document.getElementById('tutorialTitle').textContent = step.title;
+    document.getElementById('tutorialStep').textContent = `Step ${this.currentStep + 1} of ${this.steps.length}`;
+    document.getElementById('tutorialContent').innerHTML = step.content;
+    
+    const overlay = document.getElementById('tutorial-overlay');
+    const modal = document.getElementById('tutorial-modal');
+    overlay.classList.add('active');
+    modal.classList.add('active');
+    
+    this.highlightElement(step.highlight);
+    this.updateDots();
+  },
+
+  highlightElement(selector) {
+    const highlight = document.querySelector('.tutorial-highlight');
+    if (highlight) highlight.remove();
+    
+    if (!selector) return;
+    
+    const el = document.querySelector(selector);
+    if (!el) return;
+    
+    // Scroll element into view
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    
+    // Create highlight after scroll completes
+    setTimeout(() => {
+      const rect = el.getBoundingClientRect();
+      const h = document.createElement('div');
+      h.className = 'tutorial-highlight';
+      h.style.top = (rect.top + window.scrollY) + 'px';
+      h.style.left = (rect.left + window.scrollX) + 'px';
+      h.style.width = rect.width + 'px';
+      h.style.height = rect.height + 'px';
+      document.body.appendChild(h);
+    }, 100);
+  },
+
+  next() {
+    if (this.currentStep < this.steps.length - 1) {
+      this.currentStep++;
+      this.show();
+    } else {
+      this.end();
+    }
+  },
+
+  skip() {
+    this.end();
+  },
+
+  end() {
+    localStorage.setItem('tutorialSeen', 'true');
+    const overlay = document.getElementById('tutorial-overlay');
+    const modal = document.getElementById('tutorial-modal');
+    const highlight = document.querySelector('.tutorial-highlight');
+    
+    overlay.classList.remove('active');
+    modal.classList.remove('active');
+    if (highlight) highlight.remove();
+    
+    setTimeout(() => {
+      overlay.style.display='none';
+    }, 300);
+  },
+
+  renderDots() {
+    const dotsContainer = document.getElementById('tutorialDots');
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < this.steps.length; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'tutorial-dot' + (i === this.currentStep ? ' active' : '');
+      dot.onclick = () => {
+        this.currentStep = i;
+        this.show();
+      };
+      dotsContainer.appendChild(dot);
+    }
+  },
+
+  updateDots() {
+    const dots = document.querySelectorAll('.tutorial-dot');
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('active', i === this.currentStep);
+    });
+  },
+};
+
+// Event listeners for tutorial
+document.getElementById('tutorial-next').addEventListener('click', () => TUTORIAL.next());
+document.getElementById('tutorial-skip').addEventListener('click', () => TUTORIAL.skip());
+document.getElementById('tutorial-close').addEventListener('click', () => TUTORIAL.skip());
+
+// Initialize tutorial on page load
+window.addEventListener('load', () => {
+  setTimeout(() => TUTORIAL.init(), 100);
+});
+
 // ── CONSTANTS ──────────────────────────────────────────
 const SCALE  = 0.10;          // 1 m/s → 0.10 px/s  (1 px = 10 m/s in velocity space)
 const G_PX   = 9.81 * SCALE; // gravity in px/s²
