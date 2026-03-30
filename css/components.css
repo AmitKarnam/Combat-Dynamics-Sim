@@ -1,0 +1,45 @@
+/**
+ * Reusable UI Components
+ * Buttons, inputs, and common styling patterns
+ */
+
+/* Button Base */
+button {
+  font-family: var(--disp);
+  font-size: 8px;
+  letter-spacing: 2px;
+  padding: 8px 10px;
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  flex: 1;
+}
+
+/* Launch Button */
+#btnLaunch {
+  border-color: var(--attack);
+  color: var(--attack);
+}
+
+#btnLaunch:hover:not(:disabled) {
+  background: var(--attack);
+  color: var(--bg);
+}
+
+#btnLaunch:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Reset Button */
+#btnReset {
+  border-color: var(--dim2);
+  color: var(--dim2);
+}
+
+#btnReset:hover {
+  border-color: var(--text);
+  color: var(--text);
+}

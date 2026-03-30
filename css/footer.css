@@ -1,0 +1,20 @@
+/**
+ * Footer Bar Styles
+ * Frame rate and formula display at bottom
+ */
+
+.fb-lbl {
+  font-family: var(--disp);
+  font-size: 6px;
+  letter-spacing: 2px;
+  color: var(--dim2);
+}
+
+.fb-f {
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,42 @@
+/**
+ * Top Bar / Telemetry Display
+ * Real-time simulation metrics and status indicators
+ */
+
+.tb-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
+  min-width: 82px;
+}
+
+.tb-cell:last-child {
+  border-right: none;
+}
+
+.tb-lbl {
+  font-family: var(--disp);
+  font-size: 6px;
+  letter-spacing: 2px;
+  color: var(--dim2);
+}
+
+.tb-val {
+  font-size: 11px;
+  color: var(--textbright);
+  margin-top: 1px;
+}
+
+.tb-val.atk {
+  color: var(--attack);
+}
+
+.tb-val.def {
+  color: var(--defense);
+}
+
+.tb-val.hit {
+  color: var(--warn);
+}

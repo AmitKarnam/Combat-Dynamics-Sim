@@ -1,0 +1,33 @@
+/**
+ * Design Tokens & Global Variables
+ * Centralized color palette and typography settings
+ */
+
+:root {
+  /* Color Palette */
+  --bg: #050a12;
+  --panel: #070d18;
+  --border: #0d2035;
+  --border2: #112840;
+  
+  /* Accent Colors */
+  --accent: #00d4ff;
+  --attack: #ff4455;
+  --defense: #00ffcc;
+  --warn: #ffcc00;
+  
+  /* Text & Utility */
+  --dim: #1e3a55;
+  --dim2: #2a4a6a;
+  --text: #7aaccb;
+  --textbright: #cce8f8;
+  
+  /* Typography */
+  --mono: 'Share Tech Mono', monospace;
+  --disp: 'Orbitron', monospace;
+  
+  /* Layout Constants */
+  --sidebar-width: 258px;
+  --topbar-height: 40px;
+  --ground-strip: 36px;
+}
